@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	dyproto "github.com/XiaoMiku01/douyin-live-go/protobuf"
@@ -27,7 +28,8 @@ type Room struct {
 
 	RoomTitle string
 
-	wsConnect *websocket.Conn
+	wsConnect     *websocket.Conn
+	wsConnectLock sync.Mutex
 }
 
 func NewRoom(u string) (*Room, error) {
@@ -134,7 +136,9 @@ func (r *Room) send() {
 			PayloadType: "bh",
 		}
 		data, _ := proto.Marshal(pingPack)
+		r.wsConnectLock.Lock()
 		err := r.wsConnect.WriteMessage(websocket.BinaryMessage, data)
+		r.wsConnectLock.Unlock()
 		if err != nil {
 			panic(err.Error())
 		}
@@ -149,7 +153,9 @@ func (r *Room) sendAck(logId uint64, iExt string) {
 		PayloadType: iExt,
 	}
 	data, _ := proto.Marshal(ackPack)
+	r.wsConnectLock.Lock()
 	err := r.wsConnect.WriteMessage(websocket.BinaryMessage, data)
+	r.wsConnectLock.Unlock()
 	if err != nil {
 		panic(err.Error())
 	}
@@ -174,22 +180,26 @@ func parseChatMsg(msg []byte) {
 	var chatMsg dyproto.ChatMessage
 	_ = proto.Unmarshal(msg, &chatMsg)
 	log.Printf("[弹幕] %s : %s\n", chatMsg.User.NickName, chatMsg.Content)
+	UserChatRoom(chatMsg)
 }
 
 func parseGiftMsg(msg []byte) {
 	var giftMsg dyproto.GiftMessage
 	_ = proto.Unmarshal(msg, &giftMsg)
 	log.Printf("[礼物] %s : %s * %d \n", giftMsg.User.NickName, giftMsg.Gift.Name, giftMsg.ComboCount)
+	UserGiftRoom(giftMsg)
 }
 
 func parseLikeMsg(msg []byte) {
 	var likeMsg dyproto.LikeMessage
 	_ = proto.Unmarshal(msg, &likeMsg)
 	log.Printf("[点赞] %s 点赞 * %d \n", likeMsg.User.NickName, likeMsg.Count)
+	UserLikeRoom(likeMsg)
 }
 
 func parseEnterMsg(msg []byte) {
 	var enterMsg dyproto.MemberMessage
 	_ = proto.Unmarshal(msg, &enterMsg)
 	log.Printf("[入场] %s 直播间\n", enterMsg.User.NickName)
+	UserEnterRoom(enterMsg)
 }

@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	r, err := NewRoom("https://live.douyin.com/7003418886")
+	r, err := NewRoom("https://live.douyin.com/36209225113")
 	if err != nil {
 		panic(err)
 	}
